@@ -29,6 +29,8 @@ inline std::string tokenTypeToString(const TokenType& tokenType) {
 		return "Float value";
 	case IntType:
 		return "Int type";
+	case FloatType:
+		return "Float type";
 	case Identifier:
 		return "Identifier";
 	case OpenBrace:
@@ -51,6 +53,8 @@ struct Token {
 	std::string::const_iterator begin;
 	std::string::const_iterator end;
 	std::string lexeme;
+	int startPosition;
+	int line;
 
 	union {
 		int32_t intVal;
@@ -58,9 +62,9 @@ struct Token {
 	};
 
 	Token() {};
-	Token(TokenType _type, std::string::const_iterator _begin, std::string::const_iterator _end, std::string _lexeme) : type(_type), begin(_begin), end(_end), lexeme(_lexeme) { };
-	Token(TokenType _type, std::string::const_iterator _begin, std::string::const_iterator _end, std::string _lexeme, int _val) : type(_type), begin(_begin), end(_end), lexeme(_lexeme), intVal(_val) { };
-	Token(TokenType _type, std::string::const_iterator _begin, std::string::const_iterator _end, std::string _lexeme, float _val) : type(_type), begin(_begin), end(_end), lexeme(_lexeme), floatVal(_val) { };
+	Token(TokenType _type, std::string::const_iterator _begin, std::string::const_iterator _end, std::string _lexeme, int _pos, int _line) : type(_type), begin(_begin), end(_end), lexeme(_lexeme), startPosition(_pos), line(_line) { };
+	Token(TokenType _type, std::string::const_iterator _begin, std::string::const_iterator _end, std::string _lexeme, int _val, int _pos, int _line) : type(_type), begin(_begin), end(_end), lexeme(_lexeme), intVal(_val), startPosition(_pos), line(_line) { };
+	Token(TokenType _type, std::string::const_iterator _begin, std::string::const_iterator _end, std::string _lexeme, float _val, int _pos, int _line) : type(_type), begin(_begin), end(_end), lexeme(_lexeme), floatVal(_val), startPosition(_pos), line(_line) { };
 
 	bool operator==(const Token& token) { return token.type == type && token.lexeme == lexeme; }
 	bool operator!=(const Token& token) { return token.type != type || token.lexeme != lexeme; }
