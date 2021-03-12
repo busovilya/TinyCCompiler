@@ -43,6 +43,8 @@ inline std::string tokenTypeToString(const TokenType& tokenType) {
 		return "Close parenthese";
 	case Semicolon:
 		return "Semicolon";
+	case ReturnKeyword:
+		return "Return";
 	default:
 		return "undefined";
 	}

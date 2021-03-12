@@ -48,6 +48,13 @@ Token Lexer::getNextToken() {
 				itLexemeBegin = itCurrent;
 				return intValToken;
 			}
+
+			itCurrent = itLexemeBegin;
+			intValToken = getIntDecimalNumber();
+			if (intValToken != FAILED()) {
+				itLexemeBegin = itCurrent;
+				return intValToken;
+			}
 		}
 		if (*itCurrent >= '1' && *itCurrent <= '9') {
 			Token floatValToken = getFloatNumber();

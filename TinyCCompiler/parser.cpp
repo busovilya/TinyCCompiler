@@ -81,7 +81,10 @@ std::unique_ptr<StatementAST> Parser::parseStatement() {
 
 	getNextToken();
 	auto expr = parseExpression();
-	if (!expr) { return nullptr; }
+	if (!expr) { 
+		errors.push_back(CompilerError::errorAtLine("Function must return a value!", curToken.line));
+		return nullptr; 
+	}
 
 	getNextToken();
 	if (curToken.type != TokenType::Semicolon) { 
