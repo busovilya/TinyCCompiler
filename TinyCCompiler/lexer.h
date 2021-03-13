@@ -26,6 +26,8 @@ private:
 	Token getBracket();
 	Token getOperator();
 	Token getSemicolon();
+	Token getUnaryOperator();
+	Token getBinaryOperator();
 	Token classifyKeyword(std::string::const_iterator, std::string::const_iterator);
 	Token FAILED();
 	bool END();

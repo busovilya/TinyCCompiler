@@ -79,6 +79,14 @@ Token Lexer::getNextToken() {
 		Token semicolon = getSemicolon();
 		if (semicolon != FAILED()) { next(); itLexemeBegin = itCurrent; return semicolon; }
 
+		itCurrent = itLexemeBegin;
+		Token unaryOperator = getUnaryOperator();
+		if (unaryOperator != FAILED()) { next(); itLexemeBegin = itCurrent; return unaryOperator; }
+
+		itCurrent = itLexemeBegin;
+		Token binaryOperator = getBinaryOperator();
+		if (binaryOperator != FAILED()) { next(); itLexemeBegin = itCurrent; return binaryOperator; }
+
 		return FAILED();
 	}
 
@@ -167,6 +175,34 @@ Token Lexer::getOperator() {
 Token Lexer::getSemicolon()
 {
 	if (*itCurrent == ';') { return Token(TokenType::Semicolon, itLexemeBegin, itCurrent + 1, ";", itLexemeBegin - inputString.begin(), line); }
+
+	return FAILED();
+}
+
+Token Lexer::getUnaryOperator()
+{
+	switch (*itCurrent) {
+	case '~':
+		return Token(TokenType::BitwiseComplement, itLexemeBegin, itCurrent + 1, "~", itLexemeBegin - inputString.begin(), line);
+	case '-':
+		return Token(TokenType::Negation, itLexemeBegin, itCurrent + 1, "-", itLexemeBegin - inputString.begin(), line);
+	case '!':
+		return Token(TokenType::LogicalNegation, itLexemeBegin, itCurrent + 1, "!", itLexemeBegin - inputString.begin(), line);
+	}
+
+	return FAILED();
+}
+
+Token Lexer::getBinaryOperator()
+{
+	switch (*itCurrent) {
+	case '+':
+		return Token(TokenType::Addition, itLexemeBegin, itCurrent + 1, "+", itLexemeBegin - inputString.begin(), line);
+	case '*':
+		return Token(TokenType::Multiplication, itLexemeBegin, itCurrent + 1, "*", itLexemeBegin - inputString.begin(), line);
+	case '/':
+		return Token(TokenType::Division, itLexemeBegin, itCurrent + 1, "/", itLexemeBegin - inputString.begin(), line);
+	}
 
 	return FAILED();
 }

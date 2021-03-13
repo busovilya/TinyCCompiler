@@ -18,10 +18,13 @@ private:
 	Token curToken;
 	std::vector<Token> tokens;
 	void getNextToken();
+	void getPrevToken();
 	std::unique_ptr<ProgramAST> parseProgram();
 	std::unique_ptr<FunctionAST> parseFunction();
 	std::unique_ptr<StatementAST> parseStatement();
 	std::unique_ptr<ExprAST> parseExpression();
+	std::unique_ptr<ExprAST> parseFactor();
+	std::unique_ptr<ExprAST> parseTerm();
 	std::vector<Error*> errors;
 };
 

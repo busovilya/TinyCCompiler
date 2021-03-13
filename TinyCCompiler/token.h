@@ -5,17 +5,39 @@
 #include <iostream>
 
 enum TokenType {
+	Identifier,
+	
+	// Values
 	IntValue,
 	FloatValue,
-	Identifier,
+	
+	// Types
 	IntType,
 	FloatType,
+
+	//Braces
 	OpenBrace,
 	CloseBrace,
+
+	// Parenthesis
 	OpenParenthese,
 	CloseParenthese,
+
 	ReturnKeyword,
 	Semicolon,
+
+	// Uniary operators
+	Negation,
+	BitwiseComplement,
+	LogicalNegation,
+	// Increment,
+	// Decrement,
+
+	// Binary operators
+	Addition,
+	Multiplication,
+	Division,
+
 	End,
 	FAILED // Lexer failed to determine token
 };
@@ -45,6 +67,18 @@ inline std::string tokenTypeToString(const TokenType& tokenType) {
 		return "Semicolon";
 	case ReturnKeyword:
 		return "Return";
+	case Negation:
+		return "Negation";
+	case LogicalNegation:
+		return "Logical negation";
+	case BitwiseComplement:
+		return "Bitwise complement";
+	case Addition:
+		return "Addition";
+	case Multiplication:
+		return "Multiplication";
+	case Division:
+		return "Division";
 	default:
 		return "undefined";
 	}
@@ -70,6 +104,8 @@ struct Token {
 
 	bool operator==(const Token& token) { return token.type == type && token.lexeme == lexeme; }
 	bool operator!=(const Token& token) { return token.type != type || token.lexeme != lexeme; }
+
+	bool isUnaryOperator() { return type == Negation || type == BitwiseComplement || type == LogicalNegation; }
 };
 
 inline std::ostream& operator<<(std::ostream& out, const Token& token) { return out << tokenTypeToString(token.type) << " | " << token.lexeme; };

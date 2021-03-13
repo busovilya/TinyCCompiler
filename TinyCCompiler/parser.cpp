@@ -22,6 +22,11 @@ void Parser::getNextToken()
 	curToken = tokens[tokenNum++];
 }
 
+void Parser::getPrevToken()
+{
+	curToken = tokens[--tokenNum];
+}
+
 std::unique_ptr<ProgramAST> Parser::parseProgram() {
 	getNextToken();
 	auto func = parseFunction();
@@ -96,15 +101,71 @@ std::unique_ptr<StatementAST> Parser::parseStatement() {
 }
 
 std::unique_ptr<ExprAST> Parser::parseExpression() {
-	if (curToken.type == TokenType::IntValue) {
-		return std::make_unique<IntValAST>(curToken.intVal);
+	auto left = parseTerm();
+
+	getNextToken();
+	while (curToken.type == TokenType::Addition || curToken.type == TokenType::Negation) {
+		auto opType = curToken.type;
+		getNextToken();
+		auto right = parseTerm();
+		left = std::make_unique<ExprAST>(std::move(left), opType, std::move(right));
+		getNextToken();
+	}
+	getPrevToken();
+
+	return std::move(left);
+}
+
+std::unique_ptr<ExprAST> Parser::parseFactor()
+{
+	if (curToken.type == TokenType::OpenParenthese) {
+		getNextToken();
+		auto expr = parseExpression();
+		if (!expr) {
+			errors.push_back(CompilerError::errorAtLine("", curToken.line));
+			return nullptr;
+		}
+
+		getNextToken();
+		if (curToken.type != TokenType::CloseParenthese) {
+			errors.push_back(CompilerError::errorAtLine("", curToken.line));
+			return nullptr;
+		}
+
+		return std::move(expr);
+	}
+	else if (curToken.isUnaryOperator()) {
+		auto unOp = curToken;
+		getNextToken();
+		auto factor = parseFactor();
+		if (!factor) {
+			errors.push_back(CompilerError::errorAtLine("", curToken.line));
+			return nullptr;
+		}
+		return std::make_unique<ExprAST>(unOp.type, std::move(factor));
+
+	}
+	else if (curToken.type == TokenType::IntValue) {
+		return std::make_unique<ExprAST>(curToken.intVal);
 	}
 
-	if (curToken.type == TokenType::FloatValue) {
-		return std::make_unique<IntValAST>(curToken.floatVal);
-	}
-
-	errors.push_back(CompilerError::errorAtLine("Compiler supports only integers and floats!", curToken.line));
-
+	errors.push_back(CompilerError::errorAtLine("", curToken.line));
 	return nullptr;
+}
+
+std::unique_ptr<ExprAST> Parser::parseTerm()
+{
+	auto left = parseFactor();
+
+	getNextToken();
+	while (curToken.type == TokenType::Multiplication || curToken.type == TokenType::Division) {
+		auto opType = curToken.type;
+		getNextToken();
+		auto right = parseFactor();
+		left = std::make_unique<ExprAST>(std::move(left), opType, std::move(right));
+		getNextToken();
+	}
+	getPrevToken();
+
+	return std::move(left);
 }

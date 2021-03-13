@@ -77,5 +77,7 @@ std::string CodeGenerator::generateCode(StatementAST& item)
 }
 
 std::string CodeGenerator::generateCode(ExprAST& item) {
-	return std::to_string(((IntValAST*)&item)->val);
+	if (item.type == ExpressionType::EXPR_INT) {
+		return std::to_string(item.intVal);
+	}
 }
