@@ -70,7 +70,7 @@ std::string CodeGenerator::generateCode(FunctionAST& item)
 
 std::string CodeGenerator::generateCode(StatementAST& item)
 {
-	std::string code = std::string("mov ebx, " + generateCode(*item.expr) + '\n');
+	std::string code = generateCode(*item.expr);
 	code += "ret\n";
 
 	return code;
@@ -78,6 +78,25 @@ std::string CodeGenerator::generateCode(StatementAST& item)
 
 std::string CodeGenerator::generateCode(ExprAST& item) {
 	if (item.type == ExpressionType::EXPR_INT) {
-		return std::to_string(item.intVal);
+		return "mov ebx, " + std::to_string(item.intVal) + "\n";
+	}
+	else if (item.type == ExpressionType::EXPR_UNARY) {
+		if (item.unary.unOp == TokenType::Negation) {
+			std::string code = generateCode(*item.unary.expr);
+			code += "neg ebx\n";
+			return code;
+		}
+		else if (item.unary.unOp == TokenType::BitwiseComplement) {
+			std::string code = generateCode(*item.unary.expr);
+			code += "not ebx\n";
+			return code;
+		}
+		else if (item.unary.unOp == TokenType::LogicalNegation) {
+			std::string code = generateCode(*item.unary.expr);
+			code += "cmp ebx, 0\n"
+				"mov ebx, 0\n"
+				"sete bl\n";
+			return code;
+		}
 	}
 }
