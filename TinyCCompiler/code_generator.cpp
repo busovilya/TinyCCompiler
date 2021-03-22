@@ -40,7 +40,9 @@ std::string CodeGenerator::generateCode(ProgramAST& item)
 		"mov     ecx, buffer\n"
 		"mov     eax, x\n"
 		"mov     ebx, 10\n"
-		"add     ecx, ebx\n"
+		"add     ecx, ebx\n\n"
+		"test eax, eax\n"
+		"js NEGATIVE_NUM\n\n"
 		"@@:\n"
 		"xor edx, edx\n"
 		"div     ebx\n"
@@ -49,11 +51,25 @@ std::string CodeGenerator::generateCode(ProgramAST& item)
 		"dec     ecx\n"
 		"test    eax, eax\n"
 		"jnz     @b\n"
+		"jmp LBL\n\n"
+		"NEGATIVE_NUM :\n"
+		"neg eax\n"
+		"@@:\n"
+		"xor edx, edx\n"
+		"div     ebx\n"
+		"add     edx, 48\n"
+		"mov     BYTE PTR[ecx], dl\n"
+		"dec     ecx\n"
+		"test    eax, eax\n"
+		"jnz     @b\n"
+		"mov BYTE PTR[ecx], '-'\n"
+		"dec ecx\n\n"
+		"LBL :\n"
 		"inc     ecx\n"
 		"mov     eax, ecx\n"
 		"ret\n"
-		"NumbToStr ENDP\n";
-	code += "end start";
+		"NumbToStr ENDP\n"
+		"end start\n";
 
 	return code;
 }
@@ -96,6 +112,48 @@ std::string CodeGenerator::generateCode(ExprAST& item) {
 			code += "cmp ebx, 0\n"
 				"mov ebx, 0\n"
 				"sete bl\n";
+			return code;
+		}
+	}
+	else if (item.type == ExpressionType::EXPR_BINARY) {
+		if (item.binary.binOp == TokenType::Addition) {
+			std::string code = generateCode(*item.binary.left);
+			code += "push ebx\n";
+			code += generateCode(*item.binary.right);
+			code += "pop ecx\n";
+			code += "add ebx, ecx\n";
+
+			return code;
+		}
+		else if (item.binary.binOp == TokenType::Multiplication) {
+			std::string code = generateCode(*item.binary.left);
+			code += "push ebx\n";
+			code += generateCode(*item.binary.right);
+			code += "pop eax\n";
+			code += "mul ebx\n";
+			code += "mov ebx, eax\n";
+
+			return code;
+		}
+		else if (item.binary.binOp == TokenType::Negation) {
+			std::string code = generateCode(*item.binary.left);
+			code += "push ebx\n";
+			code += generateCode(*item.binary.right);
+			code += "pop ecx\n";
+			code += "sub ecx, ebx\n";
+			code += "mov ebx, ecx\n";
+
+			return code;
+		}
+		else if (item.binary.binOp == TokenType::Division) {
+			std::string code = generateCode(*item.binary.left);
+			code += "push ebx\n";
+			code += generateCode(*item.binary.right);
+			code += "pop eax\n";
+			code += "mov dx, 0\n";
+			code += "div bx\n";
+			code += "mov ebx, eax\n";
+
 			return code;
 		}
 	}
