@@ -23,6 +23,7 @@ enum TokenType {
 	OpenParenthese,
 	CloseParenthese,
 
+	Assignment,
 	ReturnKeyword,
 	Semicolon,
 
@@ -37,6 +38,8 @@ enum TokenType {
 	Addition,
 	Multiplication,
 	Division,
+	LogicalAnd,
+	LogicalOr,
 
 	End,
 	FAILED // Lexer failed to determine token
@@ -79,6 +82,12 @@ inline std::string tokenTypeToString(const TokenType& tokenType) {
 		return "Multiplication";
 	case Division:
 		return "Division";
+	case LogicalAnd:
+		return "Logical AND";
+	case LogicalOr:
+		return "Logical OR";
+	case Assignment:
+		return "Assignment";
 	default:
 		return "undefined";
 	}

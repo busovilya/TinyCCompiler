@@ -89,6 +89,10 @@ Token Lexer::getNextToken() {
 		Token binaryOperator = getBinaryOperator();
 		if (binaryOperator != FAILED()) { next(); itLexemeBegin = itCurrent; return binaryOperator; }
 
+		itCurrent = itLexemeBegin;
+		Token assignment = getAssignment();
+		if (assignment != FAILED()) { next(); itLexemeBegin = itCurrent; return assignment; }
+
 		return FAILED();
 	}
 
@@ -204,6 +208,25 @@ Token Lexer::getBinaryOperator()
 		return Token(TokenType::Multiplication, itLexemeBegin, itCurrent + 1, "*", itLexemeBegin - itStartOfLine, line);
 	case '/':
 		return Token(TokenType::Division, itLexemeBegin, itCurrent + 1, "/", itLexemeBegin - itStartOfLine, line);
+	}
+
+	if (std::string(itCurrent, itCurrent + 2).compare("&&") == 0) {
+		itCurrent += 2;
+		return Token(TokenType::LogicalAnd, itLexemeBegin, itCurrent + 2, "&&", itLexemeBegin - itStartOfLine, line);
+	}
+
+	if (std::string(itCurrent, itCurrent + 2).compare("||") == 0) {
+		itCurrent += 2;
+		return Token(TokenType::LogicalOr, itLexemeBegin, itCurrent + 2, "||", itLexemeBegin - itStartOfLine, line);
+	}
+
+	return FAILED();
+}
+
+Token Lexer::getAssignment()
+{
+	if (*itCurrent == '=') {
+		return Token(TokenType::Assignment, itLexemeBegin, itCurrent + 1, "=", itLexemeBegin - itStartOfLine, line);
 	}
 
 	return FAILED();

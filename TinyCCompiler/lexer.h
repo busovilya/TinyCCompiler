@@ -29,6 +29,7 @@ private:
 	Token getSemicolon();
 	Token getUnaryOperator();
 	Token getBinaryOperator();
+	Token getAssignment();
 	Token classifyKeyword(std::string::const_iterator, std::string::const_iterator);
 	Token FAILED();
 	bool END();

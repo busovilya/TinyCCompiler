@@ -156,5 +156,23 @@ std::string CodeGenerator::generateCode(ExprAST& item) {
 
 			return code;
 		}
+		else if (item.binary.binOp == TokenType::LogicalAnd) {
+			std::string code = generateCode(*item.binary.left);
+			code += "push ebx\n";
+			code += generateCode(*item.binary.right);
+			code += "pop ecx\n";
+			code += "and ebx, ecx\n";
+
+			return code;
+		}
+		else if (item.binary.binOp == TokenType::LogicalOr) {
+			std::string code = generateCode(*item.binary.left);
+			code += "push ebx\n";
+			code += generateCode(*item.binary.right);
+			code += "pop ecx\n";
+			code += "or ebx, ecx\n";
+
+			return code;
+		}
 	}
 }

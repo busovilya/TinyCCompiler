@@ -100,7 +100,28 @@ std::unique_ptr<StatementAST> Parser::parseStatement() {
 	return std::make_unique<StatementAST>(std::move(expr));
 }
 
-std::unique_ptr<ExprAST> Parser::parseExpression() {
+std::unique_ptr<ExprAST> Parser::parseExpression()
+{
+	auto left = parseLogicalAndExpression();
+
+	getNextToken();
+	while (curToken.type == TokenType::LogicalOr) {
+		auto opType = curToken.type;
+		getNextToken();
+		auto right = parseTerm();
+		if (!right) {
+			errors.push_back(CompilerError::errorAtLine("Wrong right operand!", curToken));
+			return nullptr;
+		}
+		left = std::make_unique<ExprAST>(std::move(left), opType, std::move(right));
+		getNextToken();
+	}
+	getPrevToken();
+
+	return std::move(left);
+}
+
+std::unique_ptr<ExprAST> Parser::parseAdditiveExpression() {
 	auto left = parseTerm();
 
 	getNextToken();
@@ -108,6 +129,26 @@ std::unique_ptr<ExprAST> Parser::parseExpression() {
 		auto opType = curToken.type;
 		getNextToken();
 		auto right = parseTerm();
+		if (!right) {
+			errors.push_back(CompilerError::errorAtLine("Wrong right operand!", curToken));
+			return nullptr;
+		}
+		left = std::make_unique<ExprAST>(std::move(left), opType, std::move(right));
+		getNextToken();
+	}
+	getPrevToken();
+
+	return std::move(left);
+}
+
+std::unique_ptr<ExprAST> Parser::parseLogicalAndExpression() {
+	auto left = parseAdditiveExpression();
+
+	getNextToken();
+	while (curToken.type == TokenType::LogicalAnd) {
+		auto opType = curToken.type;
+		getNextToken();
+		auto right = parseAdditiveExpression();
 		if (!right) {
 			errors.push_back(CompilerError::errorAtLine("Wrong right operand!", curToken));
 			return nullptr;

@@ -23,6 +23,8 @@ private:
 	std::unique_ptr<FunctionAST> parseFunction();
 	std::unique_ptr<StatementAST> parseStatement();
 	std::unique_ptr<ExprAST> parseExpression();
+	std::unique_ptr<ExprAST> parseAdditiveExpression();
+	std::unique_ptr<ExprAST> parseLogicalAndExpression();
 	std::unique_ptr<ExprAST> parseFactor();
 	std::unique_ptr<ExprAST> parseTerm();
 	std::vector<Error*> errors;
