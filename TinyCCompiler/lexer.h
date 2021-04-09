@@ -14,6 +14,7 @@ private:
 	std::string inputString;
 	std::string::const_iterator itLexemeBegin;
 	std::string::const_iterator itCurrent;
+	std::string::const_iterator itStartOfLine;
 	int line;
 
 	void next();

@@ -5,12 +5,14 @@
 Lexer::Lexer(std::string _inputString) : inputString(_inputString) {
 	itCurrent = inputString.cbegin();
 	itLexemeBegin = itCurrent;
+	itStartOfLine = itLexemeBegin;
 	line = 0;
 };
 
 void Lexer::next() {
 	if (*itCurrent == '\n') {
 		line++;
+		itStartOfLine = itCurrent + 1;
 	}
 	++itCurrent;
 }
@@ -90,7 +92,7 @@ Token Lexer::getNextToken() {
 		return FAILED();
 	}
 
-	return Token(TokenType::End, inputString.cend(), inputString.cend(), "\0", inputString.cend() - inputString.begin(), line);
+	return Token(TokenType::End, inputString.cend(), inputString.cend(), "\0", inputString.cend() - itStartOfLine, line);
 }
 
 Token Lexer::identifier() {
@@ -98,7 +100,7 @@ Token Lexer::identifier() {
 	while (!END() && *itCurrent >= 'a' && *itCurrent <= 'z' || *itCurrent >= 'A' && *itCurrent <= 'Z' || *itCurrent == '_' || *itCurrent >= '0' && *itCurrent <= '9') { next(); }
 
 	std::string lexeme = std::string(itLexemeBegin, itCurrent);
-	return Token(TokenType::Identifier, itLexemeBegin, itCurrent, lexeme, itLexemeBegin - inputString.begin(), line);
+	return Token(TokenType::Identifier, itLexemeBegin, itCurrent, lexeme, itLexemeBegin - itStartOfLine, line);
 }
 
 Token Lexer::getIntDecimalNumber() {
@@ -106,7 +108,7 @@ Token Lexer::getIntDecimalNumber() {
 	while (!END() && *itCurrent >= '0' && *itCurrent <= '9') { next(); }
 
 	std::string lexeme = std::string(itLexemeBegin, itCurrent);
-	return Token(TokenType::IntValue, itLexemeBegin, itCurrent, lexeme, std::stoi(lexeme), itLexemeBegin - inputString.begin(), line);
+	return Token(TokenType::IntValue, itLexemeBegin, itCurrent, lexeme, std::stoi(lexeme), itLexemeBegin - itStartOfLine, line);
 }
 
 Token Lexer::getIntBinaryNumber() {
@@ -122,7 +124,7 @@ Token Lexer::getIntBinaryNumber() {
 	std::string lexeme = std::string(itLexemeBegin, itCurrent);
 	int intVal = std::stoi(std::string(itLexemeBegin + 2, itCurrent), nullptr, 2);
 
-	return Token(TokenType::IntValue, itLexemeBegin, itCurrent, lexeme, intVal, itLexemeBegin - inputString.begin(), line);
+	return Token(TokenType::IntValue, itLexemeBegin, itCurrent, lexeme, intVal, itLexemeBegin - itStartOfLine, line);
 }
 
 Token Lexer::getFloatNumber()
@@ -140,15 +142,15 @@ Token Lexer::getFloatNumber()
 	if (!dot) { return FAILED(); }
 	std::string lexeme = std::string(itLexemeBegin, itCurrent);
 	float floatVal = std::stof(lexeme);
-	return Token(TokenType::FloatValue, itLexemeBegin, itCurrent, lexeme, floatVal, itLexemeBegin - inputString.begin(), line);
+	return Token(TokenType::FloatValue, itLexemeBegin, itCurrent, lexeme, floatVal, itLexemeBegin - itStartOfLine, line);
 }
 
 Token Lexer::classifyKeyword(std::string::const_iterator begin, std::string::const_iterator end) {
 	std::string str(begin, end);
 
-	if (str == "int") { return Token(TokenType::IntType, begin, end, str, begin - inputString.begin(), line); }
-	if (str == "float") { return Token(TokenType::FloatType, begin, end, str, begin - inputString.begin(), line); }
-	if (str == "return") { return Token(TokenType::ReturnKeyword, begin, end, str, begin - inputString.begin(), line); }
+	if (str == "int") { return Token(TokenType::IntType, begin, end, str, begin - itStartOfLine, line); }
+	if (str == "float") { return Token(TokenType::FloatType, begin, end, str, begin - itStartOfLine, line); }
+	if (str == "return") { return Token(TokenType::ReturnKeyword, begin, end, str, begin - itStartOfLine, line); }
 
 	return FAILED();
 }
@@ -156,13 +158,13 @@ Token Lexer::classifyKeyword(std::string::const_iterator begin, std::string::con
 Token Lexer::getBracket() {
 	switch (*itCurrent) {
 	case '(':
-		return Token(TokenType::OpenParenthese, itLexemeBegin + 1, itCurrent, "(", itLexemeBegin + 1 - inputString.begin(), line);
+		return Token(TokenType::OpenParenthese, itLexemeBegin + 1, itCurrent, "(", itLexemeBegin + 1 - itStartOfLine, line);
 	case ')':
-		return Token(TokenType::CloseParenthese , itLexemeBegin + 1, itCurrent, ")", itLexemeBegin + 1 - inputString.begin(), line);
+		return Token(TokenType::CloseParenthese , itLexemeBegin + 1, itCurrent, ")", itLexemeBegin + 1 - itStartOfLine, line);
 	case '{':
-		return Token(TokenType::OpenBrace, itLexemeBegin, itCurrent + 1, "{", itLexemeBegin + 1 - inputString.begin(), line);
+		return Token(TokenType::OpenBrace, itLexemeBegin, itCurrent + 1, "{", itLexemeBegin + 1 - itStartOfLine, line);
 	case '}':
-		return Token(TokenType::CloseBrace, itLexemeBegin, itCurrent + 1, "}", itLexemeBegin + 1 - inputString.begin(), line);
+		return Token(TokenType::CloseBrace, itLexemeBegin, itCurrent + 1, "}", itLexemeBegin + 1 - itStartOfLine, line);
 	default:
 		return FAILED();
 	}
@@ -174,7 +176,7 @@ Token Lexer::getOperator() {
 
 Token Lexer::getSemicolon()
 {
-	if (*itCurrent == ';') { return Token(TokenType::Semicolon, itLexemeBegin, itCurrent + 1, ";", itLexemeBegin - inputString.begin(), line); }
+	if (*itCurrent == ';') { return Token(TokenType::Semicolon, itLexemeBegin, itCurrent + 1, ";", itLexemeBegin - itStartOfLine, line); }
 
 	return FAILED();
 }
@@ -183,11 +185,11 @@ Token Lexer::getUnaryOperator()
 {
 	switch (*itCurrent) {
 	case '~':
-		return Token(TokenType::BitwiseComplement, itLexemeBegin, itCurrent + 1, "~", itLexemeBegin - inputString.begin(), line);
+		return Token(TokenType::BitwiseComplement, itLexemeBegin, itCurrent + 1, "~", itLexemeBegin - itStartOfLine, line);
 	case '-':
-		return Token(TokenType::Negation, itLexemeBegin, itCurrent + 1, "-", itLexemeBegin - inputString.begin(), line);
+		return Token(TokenType::Negation, itLexemeBegin, itCurrent + 1, "-", itLexemeBegin - itStartOfLine, line);
 	case '!':
-		return Token(TokenType::LogicalNegation, itLexemeBegin, itCurrent + 1, "!", itLexemeBegin - inputString.begin(), line);
+		return Token(TokenType::LogicalNegation, itLexemeBegin, itCurrent + 1, "!", itLexemeBegin - itStartOfLine, line);
 	}
 
 	return FAILED();
@@ -197,18 +199,18 @@ Token Lexer::getBinaryOperator()
 {
 	switch (*itCurrent) {
 	case '+':
-		return Token(TokenType::Addition, itLexemeBegin, itCurrent + 1, "+", itLexemeBegin - inputString.begin(), line);
+		return Token(TokenType::Addition, itLexemeBegin, itCurrent + 1, "+", itLexemeBegin - itStartOfLine, line);
 	case '*':
-		return Token(TokenType::Multiplication, itLexemeBegin, itCurrent + 1, "*", itLexemeBegin - inputString.begin(), line);
+		return Token(TokenType::Multiplication, itLexemeBegin, itCurrent + 1, "*", itLexemeBegin - itStartOfLine, line);
 	case '/':
-		return Token(TokenType::Division, itLexemeBegin, itCurrent + 1, "/", itLexemeBegin - inputString.begin(), line);
+		return Token(TokenType::Division, itLexemeBegin, itCurrent + 1, "/", itLexemeBegin - itStartOfLine, line);
 	}
 
 	return FAILED();
 }
 
 Token Lexer::FAILED() {
-	return Token(TokenType::FAILED, itLexemeBegin, itCurrent, std::string(itLexemeBegin, itCurrent), itLexemeBegin - inputString.begin(), line);
+	return Token(TokenType::FAILED, itLexemeBegin, itCurrent, std::string(itLexemeBegin, itCurrent), itLexemeBegin - itStartOfLine, line);
 }
 
 bool Lexer::END() {

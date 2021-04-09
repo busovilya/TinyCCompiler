@@ -36,32 +36,32 @@ std::unique_ptr<ProgramAST> Parser::parseProgram() {
 
 std::unique_ptr<FunctionAST> Parser::parseFunction() {
 	if (curToken.type != TokenType::IntType) { 
-		errors.push_back(CompilerError::errorAtLine("Function must have INT type.", curToken.line));
+		errors.push_back(CompilerError::errorAtLine("Expected 'int'!", curToken));
 		return nullptr; 
 	}
 
 	getNextToken();
 	if (curToken.type != TokenType::Identifier) { 
-		errors.push_back(CompilerError::errorAtLine("Function definition must have identifier.", curToken.line));
+		errors.push_back(CompilerError::errorAtLine("Function definition must have identifier.", curToken));
 		return nullptr; 
 	}
 	auto name = curToken.lexeme;
 
 	getNextToken();
 	if (curToken.type != TokenType::OpenParenthese) { 
-		errors.push_back(CompilerError::errorAtLine("Wrong function definition!", curToken.line));
+		errors.push_back(CompilerError::errorAtLine("Expected '('!", curToken));
 		return nullptr; 
 	}
 
 	getNextToken();
 	if (curToken.type != TokenType::CloseParenthese) { 
-		errors.push_back(CompilerError::errorAtLine("Wrong function definition!", curToken.line));
+		errors.push_back(CompilerError::errorAtLine("Expected ')'!", curToken));
 		return nullptr; 
 	}
 
 	getNextToken();
 	if (curToken.type != TokenType::OpenBrace) {
-		errors.push_back(CompilerError::errorAtLine("Statement must be surrounded by braces", curToken.line));
+		errors.push_back(CompilerError::errorAtLine("Expected '{'!", curToken));
 		return nullptr;
 	}
 
@@ -71,7 +71,7 @@ std::unique_ptr<FunctionAST> Parser::parseFunction() {
 
 	getNextToken();
 	if (curToken.type != TokenType::CloseBrace) { 
-		errors.push_back(CompilerError::errorAtLine("Statement must be surrounded by braces", curToken.line));
+		errors.push_back(CompilerError::errorAtLine("Expected '}'!", curToken));
 		return nullptr; 
 	}
 
@@ -80,20 +80,20 @@ std::unique_ptr<FunctionAST> Parser::parseFunction() {
 
 std::unique_ptr<StatementAST> Parser::parseStatement() {
 	if (curToken.type != TokenType::ReturnKeyword) { 
-		errors.push_back(CompilerError::errorAtLine("Missed return keyword!", curToken.line));
+		errors.push_back(CompilerError::errorAtLine("Expected 'return'!", curToken));
 		return nullptr; 
 	}
 
 	getNextToken();
 	auto expr = parseExpression();
 	if (!expr) { 
-		errors.push_back(CompilerError::errorAtLine("Function must return a value!", curToken.line));
+		errors.push_back(CompilerError::errorAtLine("Function must return a value!", curToken));
 		return nullptr; 
 	}
 
 	getNextToken();
 	if (curToken.type != TokenType::Semicolon) { 
-		errors.push_back(CompilerError::errorAtLine("Semicolon is missed!", curToken.line));
+		errors.push_back(CompilerError::errorAtLine("Expected ';'!", curToken));
 		return nullptr; 
 	}
 
@@ -108,6 +108,10 @@ std::unique_ptr<ExprAST> Parser::parseExpression() {
 		auto opType = curToken.type;
 		getNextToken();
 		auto right = parseTerm();
+		if (!right) {
+			errors.push_back(CompilerError::errorAtLine("Wrong right operand!", curToken));
+			return nullptr;
+		}
 		left = std::make_unique<ExprAST>(std::move(left), opType, std::move(right));
 		getNextToken();
 	}
@@ -122,13 +126,12 @@ std::unique_ptr<ExprAST> Parser::parseFactor()
 		getNextToken();
 		auto expr = parseExpression();
 		if (!expr) {
-			errors.push_back(CompilerError::errorAtLine("", curToken.line));
-			return nullptr;
+ 			return nullptr;
 		}
 
 		getNextToken();
 		if (curToken.type != TokenType::CloseParenthese) {
-			errors.push_back(CompilerError::errorAtLine("", curToken.line));
+			errors.push_back(CompilerError::errorAtLine("Expected ')'!", curToken));
 			return nullptr;
 		}
 
@@ -139,7 +142,7 @@ std::unique_ptr<ExprAST> Parser::parseFactor()
 		getNextToken();
 		auto factor = parseFactor();
 		if (!factor) {
-			errors.push_back(CompilerError::errorAtLine("", curToken.line));
+			errors.push_back(CompilerError::errorAtLine("Wrong operand!", curToken));
 			return nullptr;
 		}
 		return std::make_unique<ExprAST>(unOp.type, std::move(factor));
@@ -149,7 +152,6 @@ std::unique_ptr<ExprAST> Parser::parseFactor()
 		return std::make_unique<ExprAST>(curToken.intVal);
 	}
 
-	errors.push_back(CompilerError::errorAtLine("", curToken.line));
 	return nullptr;
 }
 
