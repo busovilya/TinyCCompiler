@@ -6,6 +6,7 @@
 #include <fstream>
 #include <stdio.h>
 #include <string>
+#include <exception>
 
 int main(int argc, char* argv[]) {
 	std::string filename = "code.c";
@@ -31,7 +32,12 @@ int main(int argc, char* argv[]) {
 	if (ast) {
 		CodeGenerator codeGen;
 		std::ofstream out("code.asm");
-		out << codeGen.generateCode(*ast);
+		try {
+			out << codeGen.generateCode(*ast);
+		}
+		catch (std::runtime_error err) {
+			std::cout << err.what() << std::endl;
+		}
 		out.close();
 	}
 	else {

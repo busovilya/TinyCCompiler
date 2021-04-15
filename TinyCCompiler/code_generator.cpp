@@ -1,5 +1,7 @@
 #include "code_generator.h"
 
+#include <exception>
+
 CodeGenerator::CodeGenerator() {
 	header = std::string(".386\n"
 		".model flat, stdcall\n"
@@ -22,7 +24,7 @@ std::string CodeGenerator::generateCode(ProgramAST& item)
 	
 	std::string progCode = std::string(
 		"start:\n"
-		"invoke main\n"
+		"call main\n"
 		"invoke  NumbToStr, ebx, ADDR buff\n"
 		"invoke  StdOut, eax\n"
 		"invoke ExitProcess, 0\n"
@@ -76,18 +78,60 @@ std::string CodeGenerator::generateCode(ProgramAST& item)
 
 std::string CodeGenerator::generateCode(FunctionAST& item)
 {
+	stackIndex = -4;
 	functionProtos += item.name + " PROTO\n";
 	std::string functionCode = item.name + std::string(" PROC\n");
-	functionCode += generateCode(*item.statement);
-	functionCode += item.name + std::string(" ENDP\n");
 
+	// Prologue
+	functionCode += "push ebp\n"
+					"mov ebp, esp\n";
+
+	for (int i = 0; i < item.statements.size(); i++) {
+		functionCode += generateCode(*item.statements[i]);
+	}
+
+	int offset = 0;
+	for (auto item : varMap) {
+		offset = std::max(offset, -item.second);
+	}
+	functionCode += "add esp, " + std::to_string(offset) + "\n";
+
+	// Epilogue 
+	functionCode += "mov esp, ebp\n"
+					"pop ebp\n"
+					"ret\n";
+	functionCode += item.name + std::string(" ENDP\n");
 	return functionCode;
 }
 
 std::string CodeGenerator::generateCode(StatementAST& item)
 {
-	std::string code = generateCode(*item.expr);
-	code += "ret\n";
+	std::string code;
+	if (item.type == StatementType::EXPRESSION_STATEMENT) {
+		code = generateCode(*item.expr);
+	}
+	else if (item.type == StatementType::VARIABLE_DECLARATION) {
+		if (varMap.find(item.varName) != varMap.end()) {
+			throw std::runtime_error("Multiple variable declaration is prohibited!");
+		}
+
+		varMap.insert(std::make_pair(item.varName, stackIndex));
+		code += "push 0\n";
+		stackIndex -= 4;
+	}
+	else if(item.type == StatementType::VARIABLE_DECLARATION_WITH_ASSIGNMENT) {
+		if (varMap.find(item.varName) != varMap.end()) {
+			throw std::runtime_error("Multiple variable declaration is prohibited!");
+		}
+
+		varMap.insert(std::make_pair(item.varName, stackIndex));
+		code += generateCode(*item.expr);
+		code += "push ebx\n";
+		stackIndex -= 4;
+	}
+	else if (item.type == StatementType::RETURN_STATEMENT) {
+		code += generateCode(*item.expr);
+	}
 
 	return code;
 }
@@ -114,6 +158,11 @@ std::string CodeGenerator::generateCode(ExprAST& item) {
 				"sete bl\n";
 			return code;
 		}
+	}
+	else if (item.type == ExpressionType::EXPR_VARIABLE) {
+		int offset = varMap[item.varName];
+		std::string code = "mov ebx, [ebp" + std::to_string(offset) + "]\n";
+		return code;
 	}
 	else if (item.type == ExpressionType::EXPR_BINARY) {
 		if (item.binary.binOp == TokenType::Addition) {
@@ -174,5 +223,12 @@ std::string CodeGenerator::generateCode(ExprAST& item) {
 
 			return code;
 		}
+	}
+	else if (item.type == ExpressionType::EXPR_ASSIGNMENT) {
+		std::string code = generateCode(*item.varAssignment.expr);
+		int varStackIndex = varMap[item.varAssignment.varName];
+		code += "mov [ebp" + std::to_string(varStackIndex) + "], ebx\n";
+		
+		return code;
 	}
 }

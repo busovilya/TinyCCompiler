@@ -145,6 +145,7 @@
     <ClCompile Include="parser.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="algorithm.h" />
     <ClInclude Include="ast.h" />
     <ClInclude Include="code_generator.h" />
     <ClInclude Include="error.h" />

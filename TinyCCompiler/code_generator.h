@@ -3,6 +3,7 @@
 
 #include <string>
 #include <sstream>
+#include <unordered_map>
 
 #include "ast.h"
 
@@ -18,6 +19,9 @@ private:
 	std::string functionProtos;
 	std::string dataSection;
 	std::string codeSection;
+
+	int stackIndex;
+	std::unordered_map<std::string, int> varMap;
 };
 
 #endif // !CODE_GENERATOR_H
