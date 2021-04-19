@@ -10,8 +10,16 @@
 
 int main(int argc, char* argv[]) {
 	std::string filename = "code.c";
+	std::string outputFile = "code.asm";
+
 	if (argc > 1) {
 		filename = argv[1];
+
+		if (argc == 4) {
+			if (std::strcmp(argv[2], "-o") == 0) {
+				outputFile = argv[3];
+			}
+		}
 	}
 
 	std::ifstream input(filename, std::ifstream::binary);
@@ -31,7 +39,12 @@ int main(int argc, char* argv[]) {
 	auto ast = parser.Parse();
 	if (ast) {
 		CodeGenerator codeGen;
-		std::ofstream out("code.asm");
+		std::ofstream out(outputFile);
+		if (!out.is_open()) {
+			std::cout << "Wrong output filename!" << std::endl;
+			return -1;
+		}
+
 		try {
 			out << codeGen.generateCode(*ast);
 		}
