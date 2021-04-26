@@ -4,6 +4,7 @@
 #include <string>
 #include <sstream>
 #include <unordered_map>
+#include <vector>
 
 #include "ast.h"
 
@@ -12,8 +13,12 @@ public:
 	CodeGenerator();
 	std::string generateCode(ProgramAST& item);
 	std::string generateCode(FunctionAST& item);
+	std::string generateCode(BlockAST& item);
+	std::string generateCode(BlockItemAST& item);
+	std::string generateCode(ConditionAST& item);
 	std::string generateCode(StatementAST& item);
 	std::string generateCode(ExprAST& item);
+	std::string generateCode(DeclarationAST& item);
 private:
 	std::string header;
 	std::string functionProtos;
@@ -21,7 +26,9 @@ private:
 	std::string codeSection;
 
 	int stackIndex;
-	std::unordered_map<std::string, int> varMap;
+	std::vector<std::unordered_map<std::string, int>> varMaps;
+
+	int findVariableOffset(std::string varName);
 };
 
 #endif // !CODE_GENERATOR_H

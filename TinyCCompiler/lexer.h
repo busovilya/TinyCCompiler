@@ -29,10 +29,10 @@ private:
 	Token getSemicolon();
 	Token getUnaryOperator();
 	Token getBinaryOperator();
-	Token getAssignment();
+	Token parseEquals();
 	Token classifyKeyword(std::string::const_iterator, std::string::const_iterator);
 	Token FAILED();
-	bool END();
+	bool endIsReached();
 };
 
 #endif

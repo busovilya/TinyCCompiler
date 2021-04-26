@@ -1,6 +1,7 @@
 #include "code_generator.h"
 
 #include <exception>
+#include <limits>
 
 CodeGenerator::CodeGenerator() {
 	header = std::string(".386\n"
@@ -86,22 +87,36 @@ std::string CodeGenerator::generateCode(FunctionAST& item)
 	functionCode += "push ebp\n"
 					"mov ebp, esp\n";
 
-	for (int i = 0; i < item.statements.size(); i++) {
-		functionCode += generateCode(*item.statements[i]);
-	}
+	functionCode += generateCode(*item.block);
 
-	int offset = 0;
-	for (auto item : varMap) {
-		offset = std::max(offset, -item.second);
-	}
-	functionCode += "add esp, " + std::to_string(offset) + "\n";
+	//int offset = 0;
+	//for (auto item : varMaps[varMaps.size() - 1]) {
+	//	offset = std::max(offset, -item.second);
+	//}
+	//functionCode += "add esp, " + std::to_string(offset) + "\n";
 
 	// Epilogue 
 	functionCode += "mov esp, ebp\n"
-					"pop ebp\n"
-					"ret\n";
+					"pop ebp\n";
+	functionCode += "ret\n";
 	functionCode += item.name + std::string(" ENDP\n");
 	return functionCode;
+}
+
+std::string CodeGenerator::generateCode(BlockAST& item)
+{
+	varMaps.push_back(std::unordered_map<std::string, int>());
+	std::string code;
+
+	for (int i = 0; i < item.items.size(); i++) {
+		code += generateCode(*(item.items[i]));
+	}
+
+	for (int i = 0; i < varMaps.size(); i++) {
+		code += "pop ecx\n";
+	}
+	varMaps.pop_back();
+	return code;
 }
 
 std::string CodeGenerator::generateCode(StatementAST& item)
@@ -110,29 +125,15 @@ std::string CodeGenerator::generateCode(StatementAST& item)
 	if (item.type == StatementType::EXPRESSION_STATEMENT) {
 		code = generateCode(*item.expr);
 	}
-	else if (item.type == StatementType::VARIABLE_DECLARATION) {
-		if (varMap.find(item.varName) != varMap.end()) {
-			throw std::runtime_error("Multiple variable declaration is prohibited!");
-		}
-
-		varMap.insert(std::make_pair(item.varName, stackIndex));
-		code += "push 0\n";
-		stackIndex -= 4;
-	}
-	else if(item.type == StatementType::VARIABLE_DECLARATION_WITH_ASSIGNMENT) {
-		if (varMap.find(item.varName) != varMap.end()) {
-			throw std::runtime_error("Multiple variable declaration is prohibited!");
-		}
-
-		varMap.insert(std::make_pair(item.varName, stackIndex));
-		code += generateCode(*item.expr);
-		code += "push ebx\n";
-		stackIndex -= 4;
-	}
 	else if (item.type == StatementType::RETURN_STATEMENT) {
-		code += generateCode(*item.expr);
+		code = generateCode(*item.expr);
 	}
-
+	else if (item.type == StatementType::BLOCK) {
+		code += generateCode(*item.block);
+	}
+	else if(item.type == StatementType::CONDITION) {
+		code += generateCode(*item.condition);
+	}
 	return code;
 }
 
@@ -160,7 +161,10 @@ std::string CodeGenerator::generateCode(ExprAST& item) {
 		}
 	}
 	else if (item.type == ExpressionType::EXPR_VARIABLE) {
-		int offset = varMap[item.varName];
+		int offset = findVariableOffset(item.varName);
+		if (offset == INT_MAX) {
+			throw std::runtime_error("Undeclared variable!");
+		}
 		std::string code = "mov ebx, [ebp" + std::to_string(offset) + "]\n";
 		return code;
 	}
@@ -223,12 +227,125 @@ std::string CodeGenerator::generateCode(ExprAST& item) {
 
 			return code;
 		}
+		else if (item.binary.binOp == TokenType::Equal) {
+			std::string code = generateCode(*item.binary.left);
+			code += "push ebx\n";
+			code += generateCode(*item.binary.right);
+			code += "pop eax\n";
+			code += "cmp eax, ebx\n";
+			code += "mov ebx, 0\n";
+			code += "sete bl\n";
+
+			return code;
+		}
+		else if (item.binary.binOp == TokenType::NotEqual) {
+			std::string code = generateCode(*item.binary.left);
+			code += "push ebx\n";
+			code += generateCode(*item.binary.right);
+			code += "pop eax\n";
+			code += "cmp eax, ebx\n";
+			code += "mov ebx, 0\n";
+			code += "setne bl\n";
+
+			return code;
+		}
+		else if (item.binary.binOp == TokenType::Less) {
+			std::string code = generateCode(*item.binary.left);
+			code += "push ebx\n";
+			code += generateCode(*item.binary.right);
+			code += "pop eax\n";
+			code += "cmp eax, ebx\n";
+			code += "mov ebx, 0\n";
+			code += "setl bl\n";
+
+			return code;
+		}
+		else if (item.binary.binOp == TokenType::Greater) {
+			std::string code = generateCode(*item.binary.left);
+			code += "push ebx\n";
+			code += generateCode(*item.binary.right);
+			code += "pop eax\n";
+			code += "cmp eax, ebx\n";
+			code += "mov ebx, 0\n";
+			code += "setg bl\n";
+
+			return code;
+		}
 	}
 	else if (item.type == ExpressionType::EXPR_ASSIGNMENT) {
 		std::string code = generateCode(*item.varAssignment.expr);
-		int varStackIndex = varMap[item.varAssignment.varName];
-		code += "mov [ebp" + std::to_string(varStackIndex) + "], ebx\n";
+		int offset = findVariableOffset(item.varName);
+		
+		if (offset == INT_MAX) {
+			throw std::runtime_error("Undeclared variable!");
+		}
+		code += "mov [ebp" + std::to_string(offset) + "], ebx\n";
 		
 		return code;
 	}
+}
+
+std::string CodeGenerator::generateCode(DeclarationAST& item)
+{
+	std::string code;
+	if (!item.expr) {
+		if (varMaps[varMaps.size() - 1].find(item.varName) != varMaps[varMaps.size() - 1].end()) {
+			throw std::runtime_error("Multiple variable declaration is prohibited!");
+		}
+
+		varMaps[varMaps.size() - 1].insert(std::make_pair(item.varName, stackIndex));
+		code += "push 0\n";
+		stackIndex -= 4;
+	}
+	else {
+		if (varMaps[varMaps.size() - 1].find(item.varName) != varMaps[varMaps.size() - 1].end()) {
+			throw std::runtime_error("Multiple variable declaration is prohibited!");
+		}
+
+		varMaps[varMaps.size() - 1].insert(std::make_pair(item.varName, stackIndex));
+		code += generateCode(*item.expr);
+		code += "push ebx\n";
+		stackIndex -= 4;
+	}
+	return code;
+}
+
+int CodeGenerator::findVariableOffset(std::string varName)
+{
+	for (int i = varMaps.size() - 1; i >= 0; i--) {
+		if (varMaps[i].find(varName) != varMaps[i].end()) {
+			return varMaps[i][varName];
+		}
+	}
+
+	return INT_MAX;
+}
+
+std::string CodeGenerator::generateCode(BlockItemAST& item)
+{
+	std::string code;
+	if (item.type == BlockItemType::DECLARATION) {
+		code += generateCode(*item.declaration);
+	}
+	else if (item.type == BlockItemType::STATEMENT) {
+		code += generateCode(*item.statement);
+	}
+
+	return code;
+}
+
+std::string CodeGenerator::generateCode(ConditionAST& item)
+{
+	std::string code = generateCode(*item.expr);
+	code += "cmp ebx, 0\n";
+	code += item.elseClause ? "je LBL_ELSE\n" : "je LBL_POST_COND\n";
+	code += generateCode(*item.ifClause);
+	code += "jmp LBL_POST_COND\n";
+	if (item.elseClause) {
+		code += "LBL_ELSE:\n";
+		code += generateCode(*item.elseClause);
+	}
+	code += "LBL_POST_COND:\n";
+
+	return code;
 }

@@ -5,6 +5,10 @@
 #include <iostream>
 
 enum TokenType {
+	// Conditional operator
+	IfOperator,
+	ElseOperator,
+
 	Identifier,
 	
 	// Values
@@ -40,6 +44,10 @@ enum TokenType {
 	Division,
 	LogicalAnd,
 	LogicalOr,
+	Equal,
+	NotEqual,
+	Less,
+	Greater,
 
 	End,
 	FAILED // Lexer failed to determine token
@@ -86,8 +94,20 @@ inline std::string tokenTypeToString(const TokenType& tokenType) {
 		return "Logical AND";
 	case LogicalOr:
 		return "Logical OR";
+	case Equal:
+		return "Equal";
+	case NotEqual:
+		return "Not equal";
+	case Less:
+		return "Less";
+	case Greater:
+		return "Greater";
 	case Assignment:
 		return "Assignment";
+	case IfOperator:
+		return "If";
+	case ElseOperator:
+		return "Operator";
 	default:
 		return "undefined";
 	}

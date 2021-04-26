@@ -32,6 +32,7 @@ int main(int argc, char* argv[]) {
 		std::cout << token << std::endl;
 		tokens.push_back(token);
 	};
+	tokens.push_back(token);
 
 	std::cout << std::endl;
 

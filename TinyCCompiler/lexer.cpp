@@ -27,8 +27,8 @@ bool Lexer::skipChar() {
 
 Token Lexer::getNextToken() {
 	while (itCurrent != inputString.cend()) {
-		while (!END() && skipChar()) { next(); moveLexemeBegin();  }
-		if (END()) { break; }
+		while (!endIsReached() && skipChar()) { next(); moveLexemeBegin();  }
+		if (endIsReached()) { break; }
 
 		if (*itCurrent >= 'a' && *itCurrent <= 'z' || *itCurrent >= 'A' && *itCurrent <= 'Z') {
 			 Token token = identifier();
@@ -90,7 +90,7 @@ Token Lexer::getNextToken() {
 		if (binaryOperator != FAILED()) { next(); itLexemeBegin = itCurrent; return binaryOperator; }
 
 		itCurrent = itLexemeBegin;
-		Token assignment = getAssignment();
+		Token assignment = parseEquals();
 		if (assignment != FAILED()) { next(); itLexemeBegin = itCurrent; return assignment; }
 
 		return FAILED();
@@ -101,7 +101,7 @@ Token Lexer::getNextToken() {
 
 Token Lexer::identifier() {
 	next();
-	while (!END() && *itCurrent >= 'a' && *itCurrent <= 'z' || *itCurrent >= 'A' && *itCurrent <= 'Z' || *itCurrent == '_' || *itCurrent >= '0' && *itCurrent <= '9') { next(); }
+	while (!endIsReached() && *itCurrent >= 'a' && *itCurrent <= 'z' || *itCurrent >= 'A' && *itCurrent <= 'Z' || *itCurrent == '_' || *itCurrent >= '0' && *itCurrent <= '9') { next(); }
 
 	std::string lexeme = std::string(itLexemeBegin, itCurrent);
 	return Token(TokenType::Identifier, itLexemeBegin, itCurrent, lexeme, itLexemeBegin - itStartOfLine, line);
@@ -109,7 +109,7 @@ Token Lexer::identifier() {
 
 Token Lexer::getIntDecimalNumber() {
 	next();
-	while (!END() && *itCurrent >= '0' && *itCurrent <= '9') { next(); }
+	while (!endIsReached() && *itCurrent >= '0' && *itCurrent <= '9') { next(); }
 
 	std::string lexeme = std::string(itLexemeBegin, itCurrent);
 	return Token(TokenType::IntValue, itLexemeBegin, itCurrent, lexeme, std::stoi(lexeme), itLexemeBegin - itStartOfLine, line);
@@ -117,13 +117,13 @@ Token Lexer::getIntDecimalNumber() {
 
 Token Lexer::getIntBinaryNumber() {
 	next();
-	if (!END() && *itCurrent == 'b') { next(); }
+	if (!endIsReached() && *itCurrent == 'b') { next(); }
 	else { return FAILED(); }
 
-	if (!END() && (*itCurrent == '0' || *itCurrent == '1')) { next(); }
+	if (!endIsReached() && (*itCurrent == '0' || *itCurrent == '1')) { next(); }
 	else { return FAILED(); }
 
-	while (!END() && (*itCurrent == '0' || *itCurrent == '1')) { next(); }
+	while (!endIsReached() && (*itCurrent == '0' || *itCurrent == '1')) { next(); }
 
 	std::string lexeme = std::string(itLexemeBegin, itCurrent);
 	int intVal = std::stoi(std::string(itLexemeBegin + 2, itCurrent), nullptr, 2);
@@ -137,8 +137,8 @@ Token Lexer::getFloatNumber()
 	bool leadingZero = (*itCurrent == '0');
 	next();
 
-	if (!END() && *itCurrent == '0' && leadingZero) { return FAILED(); }
-	while (!END() && (*itCurrent >= '0' && *itCurrent <= '9' || *itCurrent == '.')) { 
+	if (!endIsReached() && *itCurrent == '0' && leadingZero) { return FAILED(); }
+	while (!endIsReached() && (*itCurrent >= '0' && *itCurrent <= '9' || *itCurrent == '.')) { 
 		if (*itCurrent == '.') { dot = true; }
 		next(); 
 	}
@@ -155,6 +155,8 @@ Token Lexer::classifyKeyword(std::string::const_iterator begin, std::string::con
 	if (str == "int") { return Token(TokenType::IntType, begin, end, str, begin - itStartOfLine, line); }
 	if (str == "float") { return Token(TokenType::FloatType, begin, end, str, begin - itStartOfLine, line); }
 	if (str == "return") { return Token(TokenType::ReturnKeyword, begin, end, str, begin - itStartOfLine, line); }
+	if (str == "if") { return Token(TokenType::IfOperator, begin, end, str, begin - itStartOfLine, line); }
+	if (str == "else") { return Token(TokenType::ElseOperator, begin, end, str, begin - itStartOfLine, line); }
 
 	return FAILED();
 }
@@ -201,6 +203,7 @@ Token Lexer::getUnaryOperator()
 
 Token Lexer::getBinaryOperator()
 {
+
 	switch (*itCurrent) {
 	case '+':
 		return Token(TokenType::Addition, itLexemeBegin, itCurrent + 1, "+", itLexemeBegin - itStartOfLine, line);
@@ -208,6 +211,10 @@ Token Lexer::getBinaryOperator()
 		return Token(TokenType::Multiplication, itLexemeBegin, itCurrent + 1, "*", itLexemeBegin - itStartOfLine, line);
 	case '/':
 		return Token(TokenType::Division, itLexemeBegin, itCurrent + 1, "/", itLexemeBegin - itStartOfLine, line);
+	case '<':
+		return Token(TokenType::Less, itLexemeBegin, itCurrent + 1, "<", itLexemeBegin - itStartOfLine, line);
+	case '>':
+		return Token(TokenType::Greater, itLexemeBegin, itCurrent + 1, ">", itLexemeBegin - itStartOfLine, line);
 	}
 
 	if (std::string(itCurrent, itCurrent + 2).compare("&&") == 0) {
@@ -223,9 +230,13 @@ Token Lexer::getBinaryOperator()
 	return FAILED();
 }
 
-Token Lexer::getAssignment()
+Token Lexer::parseEquals()
 {
 	if (*itCurrent == '=') {
+		if (itCurrent + 1 != inputString.end() && *(itCurrent + 1) == '=') {
+			next();
+			return Token(TokenType::Equal, itLexemeBegin, itCurrent, "==", itLexemeBegin - itStartOfLine, line);
+		}
 		return Token(TokenType::Assignment, itLexemeBegin, itCurrent + 1, "=", itLexemeBegin - itStartOfLine, line);
 	}
 
@@ -236,6 +247,6 @@ Token Lexer::FAILED() {
 	return Token(TokenType::FAILED, itLexemeBegin, itCurrent, std::string(itLexemeBegin, itCurrent), itLexemeBegin - itStartOfLine, line);
 }
 
-bool Lexer::END() {
+bool Lexer::endIsReached() {
 	return itCurrent == inputString.cend();
 }

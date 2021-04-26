@@ -31,6 +31,9 @@ std::unique_ptr<ProgramAST> Parser::parseProgram() {
 	getNextToken();
 	auto func = parseFunction();
 	if (!func) { return nullptr; }
+	if (curToken.type != TokenType::End) {
+		return nullptr;
+	}
 	return std::make_unique<ProgramAST>(std::move(func));
 }
 
@@ -60,29 +63,129 @@ std::unique_ptr<FunctionAST> Parser::parseFunction() {
 	}
 
 	getNextToken();
+	auto block = parseBlock();
+	if (!block) { return nullptr; }
+
+	return std::make_unique<FunctionAST>(name, std::move(block));
+}
+
+std::unique_ptr<BlockAST> Parser::parseBlock()
+{
 	if (curToken.type != TokenType::OpenBrace) {
 		errors.push_back(CompilerError::errorAtLine("Expected '{'!", curToken));
 		return nullptr;
 	}
 
-	std::vector<std::unique_ptr<StatementAST>> statements;
-	while(true) {
-		getNextToken();
-		if (STATEMENT_FIRST.find(curToken.type) == STATEMENT_FIRST.end()) {
+	std::vector<std::unique_ptr<BlockItemAST>> items;
+	getNextToken();
+	while (true) {
+		if (BLOCK_ITEM_FIRST.find(curToken.type) == BLOCK_ITEM_FIRST.end()) {
 			break;
 		}
 
-		auto statement = parseStatement();
-		if (statement == nullptr) { return nullptr; };
-		statements.push_back(std::move(statement));
+		auto item = parseBlockItem();
+		if (item == nullptr) { return nullptr; };
+		items.push_back(std::move(item));
 	}
 
-	if (curToken.type != TokenType::CloseBrace) { 
+	if (curToken.type != TokenType::CloseBrace) {
 		errors.push_back(CompilerError::errorAtLine("Expected '}'!", curToken));
-		return nullptr; 
+		return nullptr;
 	}
 
-	return std::make_unique<FunctionAST>(name, statements);
+	if (tokenNum + 1 < tokens.size()) { getNextToken(); }
+	return std::make_unique<BlockAST>(items);
+}
+
+std::unique_ptr<BlockItemAST> Parser::parseBlockItem() {
+	if (curToken.type == TokenType::IntType) {
+		auto declaration = parseDeclaration();
+		
+		if (!declaration) {
+			return nullptr;
+		}
+		return std::make_unique<BlockItemAST>(std::move(declaration));
+	}
+	else if (STATEMENT_FIRST.find(curToken.type) != STATEMENT_FIRST.end()) {
+		auto statement = parseStatement();
+
+		if (!statement) {
+			return nullptr;
+		}
+		return std::make_unique<BlockItemAST>(std::move(statement));
+	}
+
+	return nullptr;
+}
+
+std::unique_ptr<DeclarationAST> Parser::parseDeclaration()
+{
+	getNextToken();
+	if (curToken.type != TokenType::Identifier) {
+		errors.push_back(CompilerError::errorAtLine("Expected identifier!", curToken));
+		return nullptr;
+	}
+	std::string name = curToken.lexeme;
+
+	getNextToken();
+	// <declaration> := "int" <id> ";"
+	if (curToken.type == TokenType::Semicolon) {
+		getNextToken();
+
+		return std::make_unique<DeclarationAST>(name);
+	}
+
+	std::unique_ptr<ExprAST> expr;
+	// <declaration> := "int" <id> "=" <exp> ";"
+	if (curToken.type == TokenType::Assignment) {
+		getNextToken();
+
+		expr = parseExpression();
+		if (!expr) {
+			errors.push_back(CompilerError::errorAtLine("Invalid expression!", curToken));
+			return nullptr;
+		}
+	}
+
+	if (curToken.type != TokenType::Semicolon) {
+		errors.push_back(CompilerError::errorAtLine("Expected ';'!", curToken));
+		return nullptr;
+	}
+	getNextToken();
+
+	return std::make_unique<DeclarationAST>(name, std::move(expr));
+}
+
+std::unique_ptr<ConditionAST> Parser::parseCondition()
+{
+	getNextToken();
+
+	if (curToken.type != TokenType::OpenParenthese) {
+		errors.push_back(CompilerError::errorAtLine("Expected '('!", curToken));
+		return nullptr;
+	}
+
+	getNextToken();
+	auto expr = parseExpression();
+
+	if (curToken.type != TokenType::CloseParenthese) {
+		errors.push_back(CompilerError::errorAtLine("Expected ')'!", curToken));
+		return nullptr;
+	}
+
+	getNextToken();
+	auto ifClause = parseBlock();
+	if (!ifClause) { return nullptr; }
+	
+	if (curToken.type == TokenType::ElseOperator) {
+		getNextToken();
+		auto elseClause = parseBlock();
+		if (!elseClause) { return nullptr; }
+
+		return std::make_unique<ConditionAST>(std::move(expr), std::move(ifClause), std::move(elseClause));
+	}
+
+	return std::make_unique<ConditionAST>(std::move(expr), std::move(ifClause), nullptr);
 }
 
 std::unique_ptr<StatementAST> Parser::parseStatement() {
@@ -96,12 +199,12 @@ std::unique_ptr<StatementAST> Parser::parseStatement() {
 			return nullptr;
 		}
 
-		getNextToken();
 		if (curToken.type != TokenType::Semicolon) {
 			errors.push_back(CompilerError::errorAtLine("Expected ';'!", curToken));
 			return nullptr;
 		}
 
+		getNextToken();
 		return std::make_unique<StatementAST>(StatementType::RETURN_STATEMENT, std::move(expr));
 	}
 	// <statement> := <expr> ";"
@@ -112,47 +215,30 @@ std::unique_ptr<StatementAST> Parser::parseStatement() {
 			return nullptr;
 		}
 
-		getNextToken();
 		if (curToken.type != TokenType::Semicolon) {
 			errors.push_back(CompilerError::errorAtLine("Expected ';'!", curToken));
 			return nullptr;
 		}
 
+		getNextToken();
 		return std::make_unique<StatementAST>(StatementType::EXPRESSION_STATEMENT, std::move(expr));
 	}
-	else if (curToken.type == TokenType::IntType) {
-		getNextToken();
-		if(curToken.type != TokenType::Identifier) {
-			errors.push_back(CompilerError::errorAtLine("Expected identifier!", curToken));
-			return nullptr;
-		}
-		std::string name = curToken.lexeme;
+	else if (curToken.type == TokenType::OpenBrace) {
+		auto block = parseBlock();
 
-		getNextToken();
-		// <statement> := "int" <id> ";"
-		if (curToken.type == TokenType::Semicolon) {
-			return std::make_unique<StatementAST>(StatementType::VARIABLE_DECLARATION, name);
-		}
-
-		std::unique_ptr<ExprAST> expr;
-		// <statement> := "int" <id> "=" <exp> ";"
-		if (curToken.type == TokenType::Assignment) {
-			getNextToken();
-
-			expr = parseExpression();
-			if (!expr) {
-				errors.push_back(CompilerError::errorAtLine("Invalid expression!", curToken));
-				return nullptr;
-			}
-		}
-
-		getNextToken();
-		if (curToken.type != TokenType::Semicolon) {
-			errors.push_back(CompilerError::errorAtLine("Expected ';'!", curToken));
+		if (!block) {
 			return nullptr;
 		}
 
-		return std::make_unique<StatementAST>(StatementType::VARIABLE_DECLARATION_WITH_ASSIGNMENT, name, std::move(expr));
+		return std::make_unique<StatementAST>(std::move(block));
+	}
+	// <statement> := if(<expr>) <block> [ else <block> ]
+	else if (curToken.type == TokenType::IfOperator) {
+		auto condition = parseCondition();
+		if (!condition) {
+			return nullptr;
+		}
+		return std::make_unique<StatementAST>(std::move(condition));
 	}
 
 	return nullptr;
@@ -185,30 +271,9 @@ std::unique_ptr<ExprAST> Parser::parseExpression()
 	}
 }
 
-std::unique_ptr<ExprAST> Parser::parseAdditiveExpression() {
-	auto left = parseTerm();
-
-	getNextToken();
-	while (curToken.type == TokenType::Addition || curToken.type == TokenType::Negation) {
-		auto opType = curToken.type;
-		getNextToken();
-		auto right = parseTerm();
-		if (!right) {
-			errors.push_back(CompilerError::errorAtLine("Wrong right operand!", curToken));
-			return nullptr;
-		}
-		left = std::make_unique<ExprAST>(std::move(left), opType, std::move(right));
-		getNextToken();
-	}
-	getPrevToken();
-
-	return std::move(left);
-}
-
 std::unique_ptr<ExprAST> Parser::parseLogicalOrExpression() {
 	auto left = parseLogicalAndExpression();
 
-	getNextToken();
 	while (curToken.type == TokenType::LogicalOr) {
 		auto opType = curToken.type;
 		getNextToken();
@@ -218,18 +283,51 @@ std::unique_ptr<ExprAST> Parser::parseLogicalOrExpression() {
 			return nullptr;
 		}
 		left = std::make_unique<ExprAST>(std::move(left), opType, std::move(right));
-		getNextToken();
 	}
-	getPrevToken();
 
 	return std::move(left);
 }
 
 std::unique_ptr<ExprAST> Parser::parseLogicalAndExpression() {
+	auto left = parseEqualityExpression();
+
+	while (curToken.type == TokenType::LogicalAnd) {
+		auto opType = curToken.type;
+		getNextToken();
+		auto right = parseEqualityExpression();
+		if (!right) {
+			errors.push_back(CompilerError::errorAtLine("Wrong right operand!", curToken));
+			return nullptr;
+		}
+		left = std::make_unique<ExprAST>(std::move(left), opType, std::move(right));
+	}
+
+	return std::move(left);
+}
+
+std::unique_ptr<ExprAST> Parser::parseEqualityExpression()
+{
+	auto left = parseComparasionExpression();
+
+	while (curToken.type == TokenType::Equal || curToken.type == TokenType::NotEqual) {
+		auto opType = curToken.type;
+		getNextToken();
+		auto right = parseComparasionExpression();
+		if (!right) {
+			errors.push_back(CompilerError::errorAtLine("Wrong right operand!", curToken));
+			return nullptr;
+		}
+		left = std::make_unique<ExprAST>(std::move(left), opType, std::move(right));
+	}
+
+	return std::move(left);
+}
+
+std::unique_ptr<ExprAST> Parser::parseComparasionExpression()
+{
 	auto left = parseAdditiveExpression();
 
-	getNextToken();
-	while (curToken.type == TokenType::LogicalAnd) {
+	while (curToken.type == TokenType::Less || curToken.type == TokenType::Greater) {
 		auto opType = curToken.type;
 		getNextToken();
 		auto right = parseAdditiveExpression();
@@ -238,9 +336,24 @@ std::unique_ptr<ExprAST> Parser::parseLogicalAndExpression() {
 			return nullptr;
 		}
 		left = std::make_unique<ExprAST>(std::move(left), opType, std::move(right));
-		getNextToken();
 	}
-	getPrevToken();
+
+	return std::move(left);
+}
+
+std::unique_ptr<ExprAST> Parser::parseAdditiveExpression() {
+	auto left = parseTerm();
+
+	while (curToken.type == TokenType::Addition || curToken.type == TokenType::Negation) {
+		auto opType = curToken.type;
+		getNextToken();
+		auto right = parseTerm();
+		if (!right) {
+			errors.push_back(CompilerError::errorAtLine("Wrong right operand!", curToken));
+			return nullptr;
+		}
+		left = std::make_unique<ExprAST>(std::move(left), opType, std::move(right));
+	}
 
 	return std::move(left);
 }
@@ -254,11 +367,11 @@ std::unique_ptr<ExprAST> Parser::parseFactor()
  			return nullptr;
 		}
 
-		getNextToken();
 		if (curToken.type != TokenType::CloseParenthese) {
 			errors.push_back(CompilerError::errorAtLine("Expected ')'!", curToken));
 			return nullptr;
 		}
+		getNextToken();
 
 		return std::move(expr);
 	}
@@ -270,14 +383,22 @@ std::unique_ptr<ExprAST> Parser::parseFactor()
 			errors.push_back(CompilerError::errorAtLine("Wrong operand!", curToken));
 			return nullptr;
 		}
+		getNextToken();
+
 		return std::make_unique<ExprAST>(unOp.type, std::move(factor));
 
 	}
 	else if (curToken.type == TokenType::IntValue) {
-		return std::make_unique<ExprAST>(curToken.intVal);
+		int value = curToken.intVal;
+		getNextToken();
+
+		return std::make_unique<ExprAST>(value);
 	}
 	else if (curToken.type == TokenType::Identifier) {
-		return std::make_unique<ExprAST>(curToken.lexeme);
+		std::string lexeme = curToken.lexeme;
+		getNextToken();
+
+		return std::make_unique<ExprAST>(lexeme);
 	}
 
 	return nullptr;
@@ -287,15 +408,12 @@ std::unique_ptr<ExprAST> Parser::parseTerm()
 {
 	auto left = parseFactor();
 
-	getNextToken();
 	while (curToken.type == TokenType::Multiplication || curToken.type == TokenType::Division) {
 		auto opType = curToken.type;
 		getNextToken();
 		auto right = parseFactor();
 		left = std::make_unique<ExprAST>(std::move(left), opType, std::move(right));
-		getNextToken();
 	}
-	getPrevToken();
 
 	return std::move(left);
 }
